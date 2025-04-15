@@ -52,15 +52,17 @@ int main() {
     // time variable
     float t = 0.0f;
     //step size
+    const float dt_s = 0.01f; 
     const float dt = 0.02f; // use 0.01f for the sine wave to have a 2 HZ signal and use 0.02f for the triangle wave
     static bool rising = true;
-    static float v = 0.0f;
+    static float v1 = 0.0f;
+    static float v2 = 0.0f;
 
     while (true) {
-        // // here we create a 2HZ sin wave using (2*pi*f*t)
-        // //because sinf toggles from -1 to 1, we need to add 1, and then scale our Vref by multiplying the amplitude by 1/2
-        // float v = (sinf(2 * M_PI * 2.0f * t) + 1.0f) * (VREF / 2.0f); // scaling from 0 to Vref
-        // writeDac(0, v); // always writes to 0 (channel A)
+        // here we create a 2HZ sin wave using (2*pi*f*t)
+        //because sinf toggles from -1 to 1, we need to add 1, and then scale our Vref by multiplying the amplitude by 1/2
+        float v1 = (sinf(2 * M_PI * 1.0f * t) + 1.0f) * (VREF / 2.0f); // scaling from 0 to Vref
+        writeDac(0, v1); // always writes to 0 (channel A)
 
         // // Debug print to check values (this is by using putty)
         // printf("t: %.2f, voltage: %.2f, DAC_input: %u\n", t, v, (uint16_t)((v / VREF) * 1023.0f));
@@ -68,24 +70,24 @@ int main() {
         // here we create a 1HZ triangle wave using y = mx + b
         
         if (rising){
-            v = v+VREF*dt; // here is the rising side for the triangle
-            if (v >= VREF){
-                v = VREF;
+            v2 = v2+VREF*dt; // here is the rising side for the triangle
+            if (v2 >= VREF){
+                v2 = VREF;
                 rising = false;
             }
         }
         else{
-            v = v - VREF*dt;// here is the falling edge for the triangle
-            if (v <= 0.0f){
-                v = 0.0f;
+            v2 = v2 - VREF*dt;// here is the falling edge for the triangle
+            if (v2 <= 0.0f){
+                v2 = 0.0f;
                 rising = true;
             }
         }
 
-        writeDac(0, v); // always writes to 0 (channel A)
+        writeDac(1, v2); // always writes to 0 (channel A)
 
         // Debug print to check values (this is by using putty)
-        printf("t: %.2f, voltage: %.2f, DAC_input: %u\n", t, v, (uint16_t)((v / VREF) * 1023.0f));
+        // printf("t: %.2f, voltage: %.2f, DAC_input: %u\n", t, v, (uint16_t)((v / VREF) * 1023.0f));
 
         t = t + dt;
         sleep_ms(10); // sleep every 0.01 seconds (10ms per point)
