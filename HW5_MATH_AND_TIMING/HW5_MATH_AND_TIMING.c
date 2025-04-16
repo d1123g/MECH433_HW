@@ -28,8 +28,10 @@ static inline void cs_deselect(uint cs_pin) {
     asm volatile("nop \n nop \n nop"); // FIXME
 }
 
-
+//declare helper functions
 void writeDac(int channel, float voltage);
+uint64_t get_time(void);
+void math_time(void);
 
 int main() {
     // enables either the USB or UART communication (for us we are using USB to communicate over putty)
@@ -52,8 +54,7 @@ int main() {
     // time variable
     float t = 0.0f;
     //step size
-    const float dt_s = 0.01f; 
-    const float dt = 0.02f; // use 0.01f for the sine wave to have a 2 HZ signal and use 0.02f for the triangle wave
+    const float dt = 0.01f; // use 0.01f for the sine wave to have a 2 HZ signal and use 0.02f for the triangle wave
     static bool rising = true;
     static float v1 = 0.0f;
     static float v2 = 0.0f;
@@ -61,32 +62,10 @@ int main() {
     while (true) {
         // here we create a 2HZ sin wave using (2*pi*f*t)
         //because sinf toggles from -1 to 1, we need to add 1, and then scale our Vref by multiplying the amplitude by 1/2
-        float v1 = (sinf(2 * M_PI * 1.0f * t) + 1.0f) * (VREF / 2.0f); // scaling from 0 to Vref
+        float v1 = (sinf(2 * M_PI * 2.0f * t) + 1.0f) * (VREF / 2.0f); // scaling from 0 to Vref
         writeDac(0, v1); // always writes to 0 (channel A)
 
         // // Debug print to check values (this is by using putty)
-        // printf("t: %.2f, voltage: %.2f, DAC_input: %u\n", t, v, (uint16_t)((v / VREF) * 1023.0f));
-
-        // here we create a 1HZ triangle wave using y = mx + b
-        
-        if (rising){
-            v2 = v2+VREF*dt; // here is the rising side for the triangle
-            if (v2 >= VREF){
-                v2 = VREF;
-                rising = false;
-            }
-        }
-        else{
-            v2 = v2 - VREF*dt;// here is the falling edge for the triangle
-            if (v2 <= 0.0f){
-                v2 = 0.0f;
-                rising = true;
-            }
-        }
-
-        writeDac(1, v2); // always writes to 0 (channel A)
-
-        // Debug print to check values (this is by using putty)
         // printf("t: %.2f, voltage: %.2f, DAC_input: %u\n", t, v, (uint16_t)((v / VREF) * 1023.0f));
 
         t = t + dt;
@@ -126,4 +105,59 @@ void writeDac(int channel, float voltage){
     cs_select(PIN_CS);
     spi_write_blocking(SPI_PORT, data, 2);
     cs_deselect(PIN_CS);
+}
+
+void math_time(void){
+    volatile float f1, f2;
+    printf("Enter two floats to use:");
+    scanf("%f %f", &f1, &f2);
+    volatile float f_add, f_sub, f_mult, f_div;
+    uint64_t f_add_t1, f_add_t2, f_sub_t1, f_sub_t2, f_mult_t1, f_mult_t2, f_div_t1, f_div_t2;
+    int i;
+
+    f_add_t1 = get_time();
+    for (i=1;i<=1000;i++){
+        f_add = f1+f2;
+    }
+    f_add_t2 = get_time();
+
+
+    f_sub_t1 = get_time();
+    for (i=1;i<=1000;i++){
+        f_sub = f1-f2;
+    }
+    f_sub_t2 = get_time();
+
+    f_mult_t1 = get_time();
+    for (i=1;i<=1000;i++){
+        f_mult = f1*f2;
+    }
+    f_mult_t2 = get_time();
+
+    f_div_t1 = get_time();
+    for (i=1;i<=1000;i++){
+        f_div = f1/f2;
+    }
+    f_div_t2 = get_time();
+
+    compute_time(f_add_t1,f_add_t2);
+    compute_time(f_sub_t1, f_sub_t2);
+    compute_time(f_div_t1, f_div_t2);
+    compute_time(f_mult_t1, f_mult_t2);
+    
+    printf("\nResults: \n%f+%f=%f \n%f-%f=%f \n%f*%f=%f \n%f/%f=%f\n", f1,f2,f_add, f1,f2,f_sub, f1,f2,f_mult, f1,f2,f_div);
+}
+
+uint64_t get_time(void){
+    absolute_time_t t1 = get_absolute_time();
+    uint64_t t = to_us_since_boot(t1);
+    return t;
+    // printf("t = %llu\n", t);
+}
+
+void compute_time(uint64_t t1, uint64_t t2){
+    uint64_t elapsed_time = t2-t1;
+    printf("t = %llu\n", elapsed_time);
+    // remember that our clock runs at 150 MHz, which means it takes 1/150000000 seconds for each clock cycle
+    uint64_t clock_cycles = 150000000*(elapsed_time/1000);
 }

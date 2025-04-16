@@ -28,32 +28,32 @@ set(PICO_BOARD pico2 CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(HW4_SPI_DAC C CXX ASM)
+project(HW5_MATH_AND_TIMING C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(HW4_SPI_DAC HW4_SPI_DAC.c )
+add_executable(HW5_MATH_AND_TIMING HW5_MATH_AND_TIMING.c )
 
-pico_set_program_name(HW4_SPI_DAC "HW4_SPI_DAC")
-pico_set_program_version(HW4_SPI_DAC "0.1")
+pico_set_program_name(HW5_MATH_AND_TIMING "HW5_MATH_AND_TIMING")
+pico_set_program_version(HW5_MATH_AND_TIMING "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(HW4_SPI_DAC 0)
-pico_enable_stdio_usb(HW4_SPI_DAC 1)
+pico_enable_stdio_uart(HW5_MATH_AND_TIMING 0)
+pico_enable_stdio_usb(HW5_MATH_AND_TIMING 1)
 
 # Add the standard library to the build
-target_link_libraries(HW4_SPI_DAC
+target_link_libraries(HW5_MATH_AND_TIMING
         pico_stdlib
         hardware_spi)
 
 # Add the standard include files to the build
-target_include_directories(HW4_SPI_DAC PRIVATE
+target_include_directories(HW5_MATH_AND_TIMING PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
-pico_add_extra_outputs(HW4_SPI_DAC)
+pico_add_extra_outputs(HW5_MATH_AND_TIMING)
 
 
