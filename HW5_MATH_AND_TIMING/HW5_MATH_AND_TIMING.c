@@ -3,16 +3,33 @@
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
 #include <math.h>
+#include <stdint.h>
 
-// SPI defines
+// SPI defines for the DAC
 #define SPI_PORT spi0
 #define PIN_MISO 16
 #define PIN_CS   20
 #define PIN_SCK  18
 #define PIN_MOSI 19
 
-// DAC reference voltage
+// SPI defines for the 23k256 chip
+#define SPI_PORT_m spi1
+#define PIN_MISO_m 12
+#define PIN_CS_m   21
+#define PIN_SCK_m  10
+#define PIN_MOSI_m 11
+
 #define VREF 3.3f
+
+// Function Prototypes
+uint64_t get_time(void);
+uint64_t compute_time(uint64_t t1, uint64_t t2);
+
+// Union for float-byte conversion
+union FloatInt {
+    float f;
+    uint32_t i;
+};
 
 // Chip select helpers
 static inline void cs_select(uint cs_pin) {
@@ -27,56 +44,60 @@ static inline void cs_deselect(uint cs_pin) {
     asm volatile("nop \n nop \n nop");
 }
 
-// Function declarations
-void writeDac(int channel, float voltage);
-uint64_t get_time(void);
-void math_time(void);
-uint64_t compute_time(uint64_t t1, uint64_t t2);
+// ==== SRAM SPI INIT FUNCTION ====
+void spi_ram_init() {
+    spi_init(SPI_PORT_m, 1000 * 1000);
 
-int main() {
-    stdio_init_all();
-    spi_init(SPI_PORT, 1000 * 1000);
+    gpio_set_function(PIN_MISO_m, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK_m, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI_m, GPIO_FUNC_SPI);
 
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_init(PIN_CS_m);
+    gpio_set_dir(PIN_CS_m, GPIO_OUT);
+    gpio_put(PIN_CS_m, 1);
 
-    gpio_set_function(PIN_CS, GPIO_FUNC_SIO);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_put(PIN_CS, 1);
-
-    // Initialize button on GPIO 2
-    const uint BUTTON_PIN = 2;
-    gpio_init(BUTTON_PIN);
-    gpio_set_dir(BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(BUTTON_PIN); // assumes active-low button to GND
-
-    // DAC waveform
-    float t = 0.0f;
-    const float dt = 0.01f;
-
-    while (true) {
-        // Run math_time on button press (with debounce)
-        if (gpio_get(BUTTON_PIN) == 0) {
-            sleep_ms(20); // debounce
-            if (gpio_get(BUTTON_PIN) == 0) {
-                math_time(); // Run once
-                while (gpio_get(BUTTON_PIN) == 0) {
-                    sleep_ms(10); // wait for release
-                }
-            }
-        }
-
-        // 2 Hz sine wave DAC output
-        float v1 = (sinf(2 * M_PI * 2.0f * t) + 1.0f) * (VREF / 2.0f);
-        writeDac(0, v1);
-        t += dt;
-        sleep_ms(10);
-    }
-
-    return 0;
+    // Set SRAM to sequential mode
+    cs_select(PIN_CS_m);
+    uint8_t mode_seq[] = {0x01, 0x40};  // Write Mode Register, Sequential
+    spi_write_blocking(SPI_PORT_m, mode_seq, 2);
+    cs_deselect(PIN_CS_m);
 }
 
+// ==== SRAM WRITE FLOAT ====
+void write_float_to_ram(uint16_t address, float value) {
+    union FloatInt num;
+    num.f = value;
+
+    cs_select(PIN_CS_m);
+    uint8_t cmd[3] = {0x02, (address >> 8) & 0xFF, address & 0xFF};
+    spi_write_blocking(SPI_PORT_m, cmd, 3);
+
+    uint8_t bytes[4] = {
+        (num.i >> 24) & 0xFF,
+        (num.i >> 16) & 0xFF,
+        (num.i >> 8) & 0xFF,
+        num.i & 0xFF
+    };
+    spi_write_blocking(SPI_PORT_m, bytes, 4);
+    cs_deselect(PIN_CS_m);
+}
+
+// ==== SRAM READ FLOAT ====
+float read_float_from_ram(uint16_t address) {
+    union FloatInt num;
+    uint8_t bytes[4];
+
+    cs_select(PIN_CS_m);
+    uint8_t cmd[3] = {0x03, (address >> 8) & 0xFF, address & 0xFF};
+    spi_write_blocking(SPI_PORT_m, cmd, 3);
+    spi_read_blocking(SPI_PORT_m, 0x00, bytes, 4);
+    cs_deselect(PIN_CS_m);
+
+    num.i = (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+    return num.f;
+}
+
+// ==== DAC WRITE FUNCTION ====
 void writeDac(int channel, float voltage) {
     if (voltage < 0) voltage = 0;
     if (voltage > VREF) voltage = VREF;
@@ -99,6 +120,7 @@ void writeDac(int channel, float voltage) {
     cs_deselect(PIN_CS);
 }
 
+// ==== MATH TIMING ====
 void math_time(void) {
     volatile float f1, f2;
     printf("Enter two floats to use: \n");
@@ -151,6 +173,55 @@ uint64_t get_time(void) {
 
 uint64_t compute_time(uint64_t t1, uint64_t t2) {
     uint64_t elapsed_time_us = t2 - t1;
-    uint64_t clock_cycles =  150*elapsed_time_us/1000; // convert microseconds to cycles
+    uint64_t clock_cycles = 150 * elapsed_time_us / 1000; // convert microseconds to cycles
     return clock_cycles;
+}
+
+// ==== MAIN ====
+int main() {
+    stdio_init_all();
+
+    // SPI for DAC
+    spi_init(SPI_PORT, 1000 * 1000);
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_CS, GPIO_FUNC_SIO);
+    gpio_set_dir(PIN_CS, GPIO_OUT);
+    gpio_put(PIN_CS, 1);
+
+    // Button init
+    const uint BUTTON_PIN = 2;
+    gpio_init(BUTTON_PIN);
+    gpio_set_dir(BUTTON_PIN, GPIO_IN);
+    gpio_pull_up(BUTTON_PIN);
+
+    // ==== INIT SRAM & LOAD SINE ====
+    spi_ram_init();
+    for (int i = 0; i < 1000; i++) {
+        float v = (sinf(2 * M_PI * ((float)i / 1000.0f)) + 1.0f) * (VREF / 2.0f);
+        write_float_to_ram(i * 4, v);  // each float is 4 bytes
+    }
+
+    // ==== MAIN LOOP ====
+    int index = 0;
+    while (true) {
+        if (gpio_get(BUTTON_PIN) == 0) {
+            sleep_ms(20);
+            if (gpio_get(BUTTON_PIN) == 0) {
+                math_time();
+                while (gpio_get(BUTTON_PIN) == 0) {
+                    sleep_ms(10);
+                }
+            }
+        }
+
+        // 1Hz sine wave from SRAM
+        float v = read_float_from_ram(index * 4);
+        writeDac(0, v);
+        sleep_ms(1);
+        index = (index + 1) % 1000;
+    }
+
+    return 0;
 }
