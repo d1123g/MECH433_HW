@@ -240,6 +240,7 @@ int main() {
     for (int i = 0; i < 1000; i++) {
         float v = (sinf(2 * M_PI * ((float)i / 1000.0f)) + 1.0f) * (VREF / 2.0f);
         write_float_to_ram(i * 4, v);  // each float is 4 bytes
+        sleep_us(1000); // 1 ms delay 
     }
 
     // here is our main loop for the math timing.
