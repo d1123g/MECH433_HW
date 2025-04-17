@@ -24,8 +24,8 @@ int main()
     
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_SDA);
-    gpio_pull_up(I2C_SCL);
+    //gpio_pull_up(I2C_SDA); we do this on the hardware side
+    //gpio_pull_up(I2C_SCL); we do this on the hardware side
     // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
 
     while (true) {
