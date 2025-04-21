@@ -9,6 +9,8 @@
 #define I2C_SDA 21
 #define I2C_SCL 22
 
+#define HEARTBEAT 25
+#define heartbeat_cycle 250 //1 entire cycle (1000 = 1 second)
 //Tasks
 //Have pin GP7 output high at 100 Hz 
 //always read from pin GPI0 on the external board (not on the PICO2)
@@ -28,8 +30,20 @@ int main()
     //gpio_pull_up(I2C_SCL); we do this on the hardware side
     // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
 
+    // heartbeat LED initialization using on board led (GPI25)
+
+    gpio_init(HEARTBEAT);
+    gpio_set_dir(HEARTBEAT,GPIO_OUT);
+
     while (true) {
-        printf("Hello, world!\n");
-        sleep_ms(1000);
+        //toggle heartbeat
+        gpio_put(HEARTBEAT, 1);
+        printf("LUB\n");
+        sleep_ms(heartbeat_cycle/2);
+
+        gpio_put(HEARTBEAT,0);
+        printf("DUB\n");
+        sleep_ms(heartbeat_cycle/2);
+        
     }
 }

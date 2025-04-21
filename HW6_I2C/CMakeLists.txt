@@ -46,6 +46,7 @@ pico_enable_stdio_usb(HW6_I2C 1)
 
 # Add the standard library to the build
 target_link_libraries(HW6_I2C
+        hardware_i2c
         pico_stdlib)
 
 # Add the standard include files to the build
