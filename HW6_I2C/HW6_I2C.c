@@ -23,6 +23,7 @@ uint8_t readPin(uint8_t address, uint8_t reg);
 void initialize_gpio_chip_extender();
 void LED_Blink();
 
+//gpi7 is still on, needs to fix that
 int main() {
     stdio_init_all();
     sleep_ms(1000); // Give some time for USB to connect
