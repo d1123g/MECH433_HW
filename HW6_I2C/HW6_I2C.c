@@ -2,48 +2,103 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 
-// I2C defines
-// This example will use I2C0 on GPIO8 (SDA) and GPIO9 (SCL) running at 400KHz.
-// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
+// ==== I2C and GPIO CONFIG ====
 #define I2C_PORT i2c0
-#define I2C_SDA 21
-#define I2C_SCL 22
+#define I2C_SDA 16
+#define I2C_SCL 17
+#define ADDR 0x20 // MCP23008 I2C address (00100000 binary)
 
-#define HEARTBEAT 25
-#define heartbeat_cycle 250 //1 entire cycle (1000 = 1 second)
-//Tasks
-//Have pin GP7 output high at 100 Hz 
-//always read from pin GPI0 on the external board (not on the PICO2)
-//Whenever pin GP0 on the external board reads low, write high to pin GP7 on the external board and hold it as long as pin GP0 is reading low
-//when pin GP0 goes back to high turn the light back off and go back to having pin GP7 blink at high
+#define ONBOARD_LED 25
+#define HEARTBEAT_LED 7
 
-int main()
-{
+// ==== MCP23008 REGISTER ADDRESSES ====
+#define IODIR 0x00
+#define IPOL  0x01
+#define GPIO  0x09
+#define OLAT  0x0A
+
+// ==== Function Prototypes ====
+void setPin(uint8_t address, uint8_t reg, uint8_t value);
+uint8_t readPin(uint8_t address, uint8_t reg);
+void initialize_gpio_chip_extender();
+void LED_Blink();
+
+int main() {
     stdio_init_all();
+    sleep_ms(1000); // Give some time for USB to connect
 
-    // I2C Initialisation. Using it at 400Khz.
-    i2c_init(I2C_PORT, 400*1000);
-    
+    // Initialize I2C
+    i2c_init(I2C_PORT, 400 * 1000);
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
     //gpio_pull_up(I2C_SDA); we do this on the hardware side
     //gpio_pull_up(I2C_SCL); we do this on the hardware side
-    // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
 
-    // heartbeat LED initialization using on board led (GPI25)
+    // Initialize heartbeat LED
+    gpio_init(HEARTBEAT_LED);
+    gpio_set_dir(HEARTBEAT_LED, GPIO_OUT);
+    gpio_put(HEARTBEAT_LED, 1);
 
-    gpio_init(HEARTBEAT);
-    gpio_set_dir(HEARTBEAT,GPIO_OUT);
+    // Initialize onboard LED
+    gpio_init(ONBOARD_LED);
+    gpio_set_dir(ONBOARD_LED, GPIO_OUT);
+    gpio_put(ONBOARD_LED, 1);
+
+    // Initialize MCP23008
+    initialize_gpio_chip_extender();
+
+    uint64_t start_time = to_ms_since_boot(get_absolute_time());
 
     while (true) {
-        //toggle heartbeat
-        gpio_put(HEARTBEAT, 1);
-        printf("LUB\n");
-        sleep_ms(heartbeat_cycle/2);
+        LED_Blink(); // Control GP7 based on GP0 state
 
-        gpio_put(HEARTBEAT,0);
-        printf("DUB\n");
-        sleep_ms(heartbeat_cycle/2);
-        
+        // Toggle onboard LED every 500ms as a heartbeat
+        if (to_ms_since_boot(get_absolute_time()) - start_time > 500) {
+            start_time = to_ms_since_boot(get_absolute_time());
+            gpio_put(ONBOARD_LED, !gpio_get(ONBOARD_LED));
+            print("Lub Dub\n") //printing heartbeat pun
+        }
+    }
+}
+
+// ==== I2C Helper Functions ====
+void setPin(uint8_t address, uint8_t reg, uint8_t value) {
+    uint8_t buf[] = {reg, value};
+    i2c_write_blocking(I2C_PORT, address, buf, 2, false);
+}
+
+uint8_t readPin(uint8_t address, uint8_t reg) {
+    i2c_write_blocking(I2C_PORT, address, &reg, 1, true);
+    uint8_t value;
+    i2c_read_blocking(I2C_PORT, address, &value, 1, false);
+    return value;
+}
+
+// ==== MCP23008 Initialization ====
+void initialize_gpio_chip_extender() {
+    // GP0 = input, GP7 = output
+    setPin(ADDR, IODIR, 0b00000001); // GP0 input, GP7 output
+    setPin(ADDR, IPOL,  0b00000000); // Normal polarity
+    setPin(ADDR, OLAT,  0b10000000); // GP7 HIGH (LED off)
+
+    sleep_ms(500); // Small delay
+
+    setPin(ADDR, OLAT, 0b00000000); // GP7 LOW (LED on briefly)
+    sleep_ms(500);
+    setPin(ADDR, OLAT, 0b10000000); // GP7 HIGH (LED off)
+}
+
+// ==== Main I/O Loop ====
+void LED_Blink() {
+    uint8_t button_state = readPin(ADDR, GPIO);
+
+    if (!(button_state & 0b00000001)) {
+        // GP0 LOW (button pressed) → turn ON GP7 (LED ON = LOW)
+        setPin(ADDR, OLAT, 0b00000000);
+        printf("Button Pressed: LED ON\n");
+    } else {
+        // GP0 HIGH (button not pressed) → turn OFF GP7 (LED OFF = HIGH)
+        setPin(ADDR, OLAT, 0b10000000);
+        printf("Button Released: LED OFF\n");
     }
 }
