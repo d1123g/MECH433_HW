@@ -5,6 +5,12 @@
 // void drawChar(...);
 // void drawString(...);
 
+//this is a bitmap image
+
+//5x8 font
+// 5 pixels wide, 8 pixels high
+// when you use sprintf, loop throught every bit of a given byte and move over to the next column until you reach the end of the row
+
 // lookup table for all of the ascii characters
 static const char ASCII[96][5] = {
  {0x00, 0x00, 0x00, 0x00, 0x00} // 20  (space)
