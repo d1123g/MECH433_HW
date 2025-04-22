@@ -39,23 +39,28 @@ void LED_HEARTBEAT();
 
 int main() {
     stdio_init_all();
-    sleep_ms(1000); // Give some time for USB to connect
+    // we give some time for USB to connect
+    sleep_ms(1000); 
 
     // Initialize I2C
     i2c_init(I2C_PORT, 400 * 1000);
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+    // normally here we would put our pull up resistors in the pic, but we did it on the hardware side, so we are good. 
 
     // Initialize MCP23008
     initialize_gpio_chip_extender();
 
+    //we use the start time to help us in our debouncing
     uint64_t start_time = to_ms_since_boot(get_absolute_time());
 
     while (true) {
-        LED_Blink();       // Control GP7 based on GP0 state
-        LED_HEARTBEAT();   // Blink GP6
+        //we control the GP7 external pin based on when we push a button as an input for GP0
+        LED_Blink();   
+        //we blink GP6 at a regular interval.     
+        LED_HEARTBEAT();  
 
-        //
+        //we debounce and print out a heart beat pun (which is lub dub)
         if (to_ms_since_boot(get_absolute_time()) - start_time > DEBOUNCE) {
             start_time = to_ms_since_boot(get_absolute_time());
             printf("Lub Dub\n");
@@ -64,11 +69,14 @@ int main() {
 }
 
 // ==== I2C Helper Functions ====
+
+// here we write to our pin
 void setPin(uint8_t address, uint8_t reg, uint8_t value) {
     uint8_t buf[] = {reg, value};
     i2c_write_blocking(I2C_PORT, address, buf, 2, false);
 }
 
+// here we read our pin input
 uint8_t readPin(uint8_t address, uint8_t reg) {
     i2c_write_blocking(I2C_PORT, address, &reg, 1, true);
     uint8_t value;
@@ -76,7 +84,8 @@ uint8_t readPin(uint8_t address, uint8_t reg) {
     return value;
 }
 
-// ==== Write updated OLAT value ====
+// ==== Write updated OLAT value ===
+//here we initialize our OLAT function to able to write
 void write_olat() {
     setPin(ADDR, OLAT, olat_state);
 }
@@ -93,13 +102,16 @@ void set_olat_bit(int pin, bool high) {
 
 // ==== MCP23008 Initialization ====
 void initialize_gpio_chip_extender() {
-    setPin(ADDR, IODIR, 0b00000001); // GP0 = input, GP1-GP7 = output
-    setPin(ADDR, IPOL,  0x00);       // No polarity inversion
+    // we set the following: GP0 = input, GP1-GP7 = output
+    setPin(ADDR, IODIR, 0b00000001); 
+    // No polarity inversion
+    setPin(ADDR, IPOL,  0x00);      
 
     olat_state = 0x00;
-    write_olat(); // Initialize OLAT
+    // Initialize OLAT
+    write_olat(); 
 
-    // Blink GP6 and GP7 once
+    // Blink GP6 and GP7 once as a way to initialize
     set_olat_bit(GP6, 1);
     set_olat_bit(GP7, 1);
     sleep_ms(500);
@@ -108,22 +120,31 @@ void initialize_gpio_chip_extender() {
     sleep_ms(500);
 }
 
-// ==== LED on GP7 based on Button on GP0 ====
+// ==== Blink LED on GP7 based on Button on GP0 ====
 void LED_Blink() {
+    //initilaize a variable state to read the state of the pin
+    //we will call it button_state because it will depend on our button state
     uint8_t button_state = readPin(ADDR, GPIO);
 
+    // rememeber that we are shorting our circuit when we are pressing it  
     if (!(button_state & (1 << GP0))) {
         // Button pressed (GP0 LOW) LED ON (GP7 LOW)
         set_olat_bit(GP7, 0);
+
+        
         printf("Button Pressed: LED ON\n");
     } else {
         // Button not pressed (GP0 HIGH) LED OFF (GP7 HIGH)
         set_olat_bit(GP7, 1);
+
+        //print so that we can debug on putty
         printf("Button Released: LED OFF\n");
     }
 }
 
 // ==== Blink GP6 as heartbeat ====
+
+// blinking the led so that we can make sure that it make sure that there is I2C communication
 void LED_HEARTBEAT() {
     set_olat_bit(GP6, 0); // GP6 LOW LED OFF
     sleep_ms(HEARTBEAT_TIME);
