@@ -12,7 +12,8 @@
 #define I2C_SCL 9
 
 
-
+void drawmytext(int x, int y, char *m);
+void drawLetter(int x, int y, char c);
 
 // have 128 pixels in a row, 32 pixels in a column
 // x,y coordinates are in the positive x direction and "negative" y direction
@@ -34,7 +35,7 @@ int main()
     // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
 
 
-    ssd1306_init();
+    ssd1306_setup();
     ssd1306_clear();
     ssd1306_update();
 
@@ -48,10 +49,11 @@ int main()
         ssd1306_update();
         //sometimes people update a certain part of the screen that is not necessary. sometimes there is a flicker
         printf("check if it has written on OLED\n");
+        sleep_ms(1000); // Update every 1 second
     }
 }
 
-drawmytext(int x, int y, char *m) {
+void drawmytext(int x, int y, char *m) {
     int i = 0;
     while (m[i] != '\0') {
         drawLetter(x + i*5, y, m[i]);
@@ -59,7 +61,7 @@ drawmytext(int x, int y, char *m) {
     }
 }
 
-drawLetter(int x, int y, char c) {
+void drawLetter(int x, int y, char c) {
     // i represents the row, j represents the column
     //loop throught column in the font array
     int i = 0;
@@ -68,10 +70,29 @@ drawLetter(int x, int y, char c) {
     for (i = 0; i < 5; i++) {
         for (j = 0; j < 8; j++) {
         
-            char col = ASCII[c][i];
+            char col = ASCII[index][i];
             char on = (col >> j) & 0b1;
             ssd1306_drawPixel(x + i, y + j, on);
 
+        }
+    }
+}
+
+void drawLetter(int x, int y, char c) {
+    int index = c - 0x20;
+    // index is the index of the character in the ASCII array
+    // 0x20 is the ASCII value of the space character, so we subtract it to get the index of the character in the ASCII array
+    if (index < 0 || index >= 96) return; // skip unprintables
+    // 96 is the number of characters in the ASCII array
+
+    for (int i = 0; i < 5; i++) { // loop through the columns of the character
+        // 5 is the width of the character in pixels
+        char col = ASCII[index][i];
+        for (int j = 0; j < 8; j++) { // loop through the rows of the character
+            // 8 is the height of the character in pixels
+            // we need to shift the column to the right by j bits and mask it with 0b1 to get the value of the pixel
+            char on = (col >> j) & 0b1;
+            ssd1306_drawPixel(x + i, y + j, on);
         }
     }
 }
