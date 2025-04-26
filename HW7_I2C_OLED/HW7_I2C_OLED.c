@@ -3,6 +3,7 @@
 #include "hardware/i2c.h"
 #include "ssd1306.h"
 #include "font.h"
+#include "hardware/adc.h"
 
 // I2C defines
 // This example will use I2C0 on GPIO8 (SDA) and GPIO9 (SCL) running at 400KHz.
@@ -15,6 +16,7 @@
 void drawmytext(int x, int y, char *m);
 void drawLetter(int x, int y, char c);
 void pixelBlink(int x, int y);
+void display_voltage(float voltage);
 // have 128 pixels in a row, 32 pixels in a column
 // x,y coordinates are in the positive x direction and "negative" y direction
 // 0,0 is the top left corner of the screen
@@ -25,8 +27,8 @@ int main()
 {
     stdio_init_all();
 
-    // I2C Initialisation. Using it at 400Khz.
-    i2c_init(I2C_PORT, 400*1000);
+    // I2C Initialization at 1Mhz.
+    i2c_init(I2C_PORT, 1000*1000);
     
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
@@ -37,6 +39,11 @@ int main()
     gpio_init(25);
     gpio_set_dir(25, GPIO_OUT);
 
+    //adc initializtion
+    adc_init(); // initialize the ADC
+    adc_gpio_init(26); // initialize GPIO 26 as an ADC input
+    adc_select_input(0); // select ADC input 0 (GPIO 26)
+
 
 
     ssd1306_setup();
@@ -44,23 +51,33 @@ int main()
     ssd1306_update();
 
     while (true) {
-        char m[50];
-        sprintf(m, "Damian Gonzalez's HW7 I2C OLED"); // write the string to the buffer
-        ssd1306_clear(); //just to make sure that it clears the screen before you write
-        //if you wanted a hack you could do the following
-        //sprintf(m, "hello       ");//this would write hello and then 7 spaces, which would effectively clear the screen
-        drawmytext(2,7,m);
+        // Read ADC
+        uint16_t adc_value = adc_read();
+        float voltage = (adc_value * 3.3f) / 4095.0f;
+
+        // Draw to OLED
+        ssd1306_clear(); // clear ONCE at the start
+        drawmytext(2, 2, "Damian Gonzalez's"); // 2,2 is the x,y position of the text
+        drawmytext(2, 12, "HW7 I2C OLED"); // this line is 10 pixels below the previous line
+        
+        char vbuf[30];
+        sprintf(vbuf, "Voltage: %.2fV", voltage);
+        drawmytext(2, 22, vbuf); // this line is 10 pixels below the previous line
+
+        ssd1306_update(); // update AFTER all drawings
+
+        // Blink LED
         gpio_put(25, 1);
-        sleep_ms(100);
+        sleep_ms(10); // blink the LED every 10ms
         gpio_put(25, 0);
-        ssd1306_update();
-        //sometimes people update a certain part of the screen that is not necessary. sometimes there is a flicker
-        // pixelBlink(126, 30); // blink the pixel at the bottom right corner of the screen
-        // pixelBlink(127, 30); // blink the pixel at the bottom right corner of the screen
-        // pixelBlink(126, 31); // blink the pixel at the bottom right corner of the screen
-        pixelBlink(127, 31); // blink the pixel at the bottom right corner of the screen
-        printf("check if it has written on OLED\n");
-        sleep_ms(1000); // Update every 1 second
+
+        pixelBlink(0, 0); // blink the pixel at (0,0) every second
+
+        // Debug print
+        printf("ADC Value: %d\n", adc_value);
+        printf("Voltage = %.2f V\n", voltage);
+
+        sleep_ms(20); // updates at 50Hz
     }
 }
 
@@ -103,7 +120,15 @@ void drawLetter(int x, int y, char c) {
 void pixelBlink(int x, int y) {
     ssd1306_drawPixel(x, y, 1); // set the pixel to 1 (white)
     ssd1306_update(); // update the screen
-    sleep_ms(100);
+    sleep_ms(10);
     ssd1306_drawPixel(x, y, 0); // set the pixel to 0 (black)
     ssd1306_update();  // update the screen
+}
+
+void display_voltage(float voltage) {
+    char buffer[20];
+    sprintf(buffer, "Voltage: %.2fV", voltage);
+    ssd1306_clear();
+    drawmytext(0, 0, buffer);
+    ssd1306_update();
 }
