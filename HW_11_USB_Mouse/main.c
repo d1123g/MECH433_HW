@@ -161,10 +161,10 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
 
     case REPORT_ID_MOUSE:
     {
-        int8_t deltax = (int8_t)(btn >> 8);
-        int8_t deltay = (int8_t)(btn & 0xFF);
+        int8_t deltax = (int8_t)(btn >> 8); // this is the high byte of the packed value
+        int8_t deltay = (int8_t)(btn & 0xFF); // this is the low byte of the packed value
 
-        tud_hid_mouse_report(REPORT_ID_MOUSE, 0x00, deltax, deltay, 0, 0);
+        tud_hid_mouse_report(REPORT_ID_MOUSE, 0x00, deltax, deltay, 0, 0); // buttons = 0x00, no button pressed
         break;
     }
 
@@ -198,7 +198,7 @@ static void send_hid_report(uint8_t report_id, uint32_t btn)
 
       hid_gamepad_report_t report =
       {
-        .x   = 0, .y = 0, .z = 0, .rz = 0, .rx = 0, .ry = 0,
+        .x   = 0, .y = 0, .z = 0, .rz = 0, .rx = 0, .ry = 0, // analog triggers
         .hat = 0, .buttons = 0
       };
 
@@ -229,36 +229,36 @@ void hid_task(void)
 {
 
   bool left   = !gpio_get(LEFT_BUTTON_PIN);   // active-low
-  bool right  = !gpio_get(RIGHT_BUTTON_PIN);
-  bool up     = !gpio_get(TOP_BUTTON_PIN);
-  bool down   = !gpio_get(BOTTOM_BUTTON_PIN);
+  bool right  = !gpio_get(RIGHT_BUTTON_PIN); // active-low
+  bool up     = !gpio_get(TOP_BUTTON_PIN);  // active-low
+  bool down   = !gpio_get(BOTTOM_BUTTON_PIN); // active-low
   bool circle_button = !gpio_get(CIRCLE_BUTTON_PIN); // active-low
   // Edge detection for toggling
   if (circle_button && !last_circle_button_state) {
-    circle_mode = !circle_mode;
+    circle_mode = !circle_mode; // Toggle circle mode on button press
   }
-  last_circle_button_state = circle_button;
+  last_circle_button_state = circle_button; // Store the last state
 
   int8_t dx = 0;
   int8_t dy = 0;
 
-  static float angle = 0.0f;
+  static float angle = 0.0f; // Angle for circular movement
 
   if (circle_mode)
   {
     // Circle movement overrides other buttons
-    float radius = 20.0f;
-    dx = (int8_t)(radius * cosf(angle));
-    dy = (int8_t)(radius * sinf(angle));
+    float radius = 20.0f; // Adjust the radius as needed
+    dx = (int8_t)(radius * cosf(angle)); // Calculate x movement based on angle
+    dy = (int8_t)(radius * sinf(angle)); // Calculate y movement based on angle
     angle += 0.1f;
-    if (angle >= 2 * (float)M_PI) angle -= 2 * (float)M_PI;
+    if (angle >= 2 * (float)M_PI) angle -= 2 * (float)M_PI; // Keep angle within 0 to 2π
   }
   else
   {
-    if (left)  dx = -5;
-    if (right) dx = 5;
-    if (up)    dy = -5;
-    if (down)  dy = 5;
+    if (left)  dx = -5; // Move left
+    if (right) dx = 5;  // Move right
+    if (up)    dy = -5; // Move up
+    if (down)  dy = 5;  // Move down
   }
 
   // Poll every 10ms
@@ -367,6 +367,8 @@ void led_blinking_task(void)
   led_state = 1 - led_state; // toggle
 }
 
+// initialize buttons
+// This function initializes the GPIO pins for the buttons and sets them as inputs with pull-up resistors enabled.
 void initialize_buttons(void)
 {
   gpio_init(LEFT_BUTTON_PIN);
