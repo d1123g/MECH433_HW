@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(HW_13_IMU HW_13_IMU.c )
+add_executable(HW_13_IMU HW_13_IMU.c ssd1306.c)
 
 pico_set_program_name(HW_13_IMU "HW_13_IMU")
 pico_set_program_version(HW_13_IMU "0.1")
