@@ -46,7 +46,10 @@ pico_enable_stdio_usb(HW_16_Motor_Control 1)
 
 # Add the standard library to the build
 target_link_libraries(HW_16_Motor_Control
-        pico_stdlib)
+        pico_stdlib
+        hardware_pwm
+        hardware_gpio
+        hardware_clocks)
 
 # Add the standard include files to the build
 target_include_directories(HW_16_Motor_Control PRIVATE

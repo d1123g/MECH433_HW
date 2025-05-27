@@ -1,101 +1,74 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
-#include "hardware/gpio.h"
 
-// Define GPIO pins for motor control
-#define MOTOR_LEFT_PWM_PIN 15
-#define MOTOR_LEFT_DIR_PIN 16
-#define MOTOR_LEFT_EN_PIN 17
-#define MOTOR_RIGHT_PWM_PIN 18
-#define MOTOR_RIGHT_DIR_PIN 19
-#define MOTOR_RIGHT_EN_PIN 20
+#define PWM_FREQ_HZ 20000          // 20 kHz PWM
+#define CLOCK_DIVIDER 64.0f
+#define SYS_CLOCK_HZ 125000000     // Pico system clock
 
-#define PWM_WRAP_LIMIT 65535 // Set the PWM wrap limit for 16-bit resolution
-#define PWM_FREQ 1000 // Set the PWM frequency to 1 kHz
+#define DUTY_STEP 0.01f            // 1% per step
 
-#define WHEEL_DIAMETER 0.05 // Wheel diameter in meters 
-#define WHEEL_CIRCUMFERENCE (WHEEL_DIAMETER * 3.14159) // Wheel circumference in meters
+#define APH_PIN 17 // Direction pin for motor
+#define AEN_PIN 16 // PWM pin for motor
 
+uint16_t pwm_wrap = 0;
 
+void pwm_motor_init(uint pin) {
+    gpio_set_function(pin, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(pin);
 
+    pwm_wrap = (uint16_t)(SYS_CLOCK_HZ / (CLOCK_DIVIDER * PWM_FREQ_HZ)) - 1;
 
-// Function to initialize the motor control pins
-void motor_init() {
-    // Initialize GPIO pins
-
-    // Initialize GPIO pins for the left motor
-    gpio_init(MOTOR_LEFT_PWM_PIN);
-    gpio_set_dir(MOTOR_LEFT_PWM_PIN, GPIO_FUNC_PWM);
-
-    gpio_init(MOTOR_LEFT_DIR_PIN);
-    gpio_set_dir(MOTOR_LEFT_DIR_PIN, GPIO_OUT);
-
-    gpio_init(MOTOR_LEFT_EN_PIN);
-    gpio_set_dir(MOTOR_LEFT_EN_PIN, GPIO_OUT);
-
-    
-    // Initialize GPIO pins for the right motor
-    gpio_init(MOTOR_RIGHT_PWM_PIN);
-    gpio_set_dir(MOTOR_RIGHT_PWM_PIN, GPIO_FUNC_PWM);
-
-    gpio_init(MOTOR_RIGHT_DIR_PIN);
-    gpio_set_dir(MOTOR_RIGHT_DIR_PIN, GPIO_OUT);
-
-    gpio_init(MOTOR_RIGHT_EN_PIN);
-    gpio_set_dir(MOTOR_RIGHT_EN_PIN, GPIO_OUT);
-
-    // PWM initialiation
-    uint slice_num_left = pwm_gpio_to_slice_num(MOTOR_LEFT_PWM_PIN);
-    pwm_set_wrap(slice_num_left, PWM_WRAP_LIMIT);
-    pwm_set_enabled(slice_num_left, true);
-
-    uint slice_num_right = pwm_gpio_to_slice_num(MOTOR_RIGHT_PWM_PIN);
-    pwm_set_wrap(slice_num_right, PWM_WRAP_LIMIT);
-    pwm_set_enabled(slice_num_right, true);
+    pwm_set_clkdiv(slice_num, CLOCK_DIVIDER);
+    pwm_set_wrap(slice_num, pwm_wrap);
+    pwm_set_enabled(slice_num, true);
 }
 
-// Function to stop the motor 
-// probably only using for drifting lol
-void motor_stop(int motor) {
-    if (motor == 0) { // Left motor
-        gpio_put(MOTOR_LEFT_EN_PIN, 0); // Disable left motor
-    } else if (motor == 1) { // Right motor
-        gpio_put(MOTOR_RIGHT_EN_PIN, 0); // Disable right motor
-    }
+// Set duty cycle (0.0 – 1.0)
+void motor_set_speed(uint pin, float duty_cycle) {
+    if (duty_cycle < 0.0f) duty_cycle = 0.0f;
+    if (duty_cycle > 1.0f) duty_cycle = 1.0f;
+
+    uint16_t level = (uint16_t)(duty_cycle * (pwm_wrap + 1));
+    pwm_set_gpio_level(pin, level);
 }
 
-// Function to set the PWM frequency
-void motor_set_pwm_freq(int freq) {
-    pwm_set_clkdiv(MOTOR_LEFT_PWM_PIN, (float)clock_get_hz(clk_sys) / (PWM_WRAP_LIMIT * freq));
-    pwm_set_clkdiv(MOTOR_RIGHT_PWM_PIN, (float)clock_get_hz(clk_sys) / (PWM_WRAP_LIMIT * freq));
-}
-
-// Function for h-bridge motor control
-void motor_control(int motor, int speed) {
-    if (motor == 0) { // Left motor
-        if (speed > 0) {
-            gpio_put(MOTOR_LEFT_DIR_PIN, 1); // Set direction to forward
-        } else {
-            gpio_put(MOTOR_LEFT_DIR_PIN, 0); // Set direction to backward
-        }
-        pwm_set_gpio_level(MOTOR_LEFT_PWM_PIN, abs(speed)); // Set PWM level
-    } else if (motor == 1) { // Right motor
-        if (speed > 0) {
-            gpio_put(MOTOR_RIGHT_DIR_PIN, 1); // Set direction to forward
-        } else {
-            gpio_put(MOTOR_RIGHT_DIR_PIN, 0); // Set direction to backward
-        }
-        pwm_set_gpio_level(MOTOR_RIGHT_PWM_PIN, abs(speed)); // Set PWM level
-    }
-}
-
-int main()
-{
+int main() {
+    sleep_ms(10000); // Wait for 10 seconds before starting
     stdio_init_all();
 
+    gpio_init(APH_PIN);
+    gpio_set_dir(APH_PIN, true);
+
+    pwm_motor_init(AEN_PIN);
+
+    float duty = 0.0f;
+    gpio_put(APH_PIN, 1);  // Forward direction
+
+    printf("Press '+' to increase speed, '-' to decrease, 'f' for forward, 'r' for reverse\n");
+
     while (true) {
-        printf("Hello, world!\n");
-        sleep_ms(1000);
+        int c = getchar_timeout_us(0);  // non-blocking
+
+        if (c != PICO_ERROR_TIMEOUT) {
+            if (c == '+') {
+                duty += DUTY_STEP;
+                if (duty > 1.0f) duty = 1.0f;
+                printf("Increased duty: %.2f%%\n", duty * 100);
+            } else if (c == '-') {
+                duty -= DUTY_STEP;
+                if (duty < 0.0f) duty = 0.0f;
+                printf("Decreased duty: %.2f%%\n", duty * 100);
+            } else if (c == 'f') {
+                gpio_put(APH_PIN, 1);
+                printf("Direction: forward\n");
+            } else if (c == 'r') {
+                gpio_put(APH_PIN, 0);
+                printf("Direction: reverse\n");
+            }
+        }
+
+        motor_set_speed(AEN_PIN, duty);
+        sleep_ms(10);
     }
 }
