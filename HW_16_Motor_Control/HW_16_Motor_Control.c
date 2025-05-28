@@ -3,9 +3,8 @@
 #include "hardware/pwm.h"
 
 #define PWM_FREQ_HZ 1000          // 1 kHz PWM
-#define CLOCK_DIVIDER 64.0f
-#define FREQUENCY 100000     // Pico system clock frequency lower to be conservative
-
+#define CLOCK_DIVIDER 256.0f // Clock divider for the PWM frequency
+#define FREQUENCY 125000000.0f // 125 MHz clock frequency for Raspberry Pi Pico
 #define DUTY_STEP 0.01f            // 1% per step
 
 #define APH_PIN 17 // Direction pin for motor
