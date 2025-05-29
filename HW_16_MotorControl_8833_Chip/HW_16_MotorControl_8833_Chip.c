@@ -2,9 +2,9 @@
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 
-#define PWM_FREQ_HZ 1000.0f           // 1 kHz PWM
+#define PWM_FREQ_HZ 10000.0f           // 1 kHz PWM
 #define CLOCK_DIVIDER 1.0f
-#define FREQUENCY 125000000.0f           // Conservative Pico clock
+#define FREQUENCY 125000000.0f     // 125 MHz clock frequency
 
 #define DUTY_STEP 0.01f            // 1% per step
 
@@ -23,7 +23,7 @@ void pwm_motor_init(uint pin) {
     pwm_set_clkdiv(slice_num, CLOCK_DIVIDER);
     pwm_set_wrap(slice_num, pwm_wrap);
     pwm_set_enabled(slice_num, true);
-}
+}  
 
 // Set PWM duty cycle on IN1
 void motor_set_speed(uint pin, float duty_cycle) {
@@ -35,7 +35,7 @@ void motor_set_speed(uint pin, float duty_cycle) {
 }
 
 int main() {
-    sleep_ms(1000);  // Shorter startup delay
+    sleep_ms(1000);  // startup delay
     stdio_init_all();
 
     gpio_init(IN2_PIN);
@@ -51,19 +51,19 @@ int main() {
     while (true) {
         int c = getchar_timeout_us(0);
 
-        if (c != PICO_ERROR_TIMEOUT) {
-            if (c == '+') {
+        if (c != PICO_ERROR_TIMEOUT) { // Check if a character was received
+            if (c == '+') { // Increase duty cycle
                 duty += DUTY_STEP;
                 if (duty > 1.0f) duty = 1.0f;
                 printf("Increased duty: %.2f%%\n", duty * 100);
-            } else if (c == '-') {
+            } else if (c == '-') { // Decrease duty cycle
                 duty -= DUTY_STEP;
                 if (duty < 0.0f) duty = 0.0f;
                 printf("Decreased duty: %.2f%%\n", duty * 100);
-            } else if (c == 'f') {
+            } else if (c == 'f') { // Set direction to forward
                 forward = true;
                 printf("Direction: forward\n");
-            } else if (c == 'r') {
+            } else if (c == 'r') { // Set direction to reverse
                 forward = false;
                 printf("Direction: reverse\n");
             }
@@ -79,6 +79,6 @@ int main() {
             motor_set_speed(IN2_PIN, duty);
         }
 
-        sleep_ms(10);
+        sleep_ms(100);
     }
 }
