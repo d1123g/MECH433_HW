@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(HW_17_Line_Following HW_17_Line_Following.c ssd1306.c)
+add_executable(HW_17_Line_Following HW_17_Line_Following.c ssd1306.c cam.c motor.c)
 
 pico_set_program_name(HW_17_Line_Following "HW_17_Line_Following")
 pico_set_program_version(HW_17_Line_Following "0.1")
