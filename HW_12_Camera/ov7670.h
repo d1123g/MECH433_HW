@@ -1,5 +1,5 @@
 #ifndef OV7670_h
-#define OV7670_v
+#define OV7670_h
 
 #define OV7670_ADDR 0x21 //< Default I2C address if unspecified
 
@@ -188,16 +188,16 @@
 
 #define OV7670_REG_LAST OV7670_REG_SATCTR //< Maximum register address
 
-const uint8_t OV7670_init[93][2] = {
+static const uint8_t OV7670_init[92][2] = {
     {OV7670_REG_TSLB, OV7670_TSLB_YLAST},    // No auto window
     //{OV7670_REG_COM10, OV7670_COM10_VS_NEG}, // -VSYNC (req by SAMD PCC)
     {OV7670_REG_SLOP, 0x20},
-    {OV7670_REG_GAM_BASE, 0x1C},
-    {OV7670_REG_GAM_BASE + 1, 0x28},
-    {OV7670_REG_GAM_BASE + 2, 0x3C},
-    {OV7670_REG_GAM_BASE + 3, 0x55},
-    {OV7670_REG_GAM_BASE + 4, 0x68},
-    {OV7670_REG_GAM_BASE + 5, 0x76},
+    {OV7670_REG_GAM_BASE, 0x10}, //1C
+    {OV7670_REG_GAM_BASE + 1, 0x1e}, //28 //1e
+    {OV7670_REG_GAM_BASE + 2, 0x35}, //3C //35
+    {OV7670_REG_GAM_BASE + 3, 0x5a}, //55 //5a
+    {OV7670_REG_GAM_BASE + 4, 0x69}, //68 //69
+    {OV7670_REG_GAM_BASE + 5, 0x76}, 
     {OV7670_REG_GAM_BASE + 6, 0x80},
     {OV7670_REG_GAM_BASE + 7, 0x88},
     {OV7670_REG_GAM_BASE + 8, 0x8F},
@@ -210,25 +210,25 @@ const uint8_t OV7670_init[93][2] = {
     {OV7670_REG_COM8, OV7670_COM8_FASTAEC | OV7670_COM8_AECSTEP | OV7670_COM8_BANDING},
     {OV7670_REG_GAIN, 0x00},
     {OV7670_REG_COM2, 0x00},
-    {OV7670_REG_COM4, 0x00},
+    {OV7670_REG_COM4, 0x40}, //00
     {OV7670_REG_COM9, 0x20}, // Max AGC value
     {OV7670_REG_COM11, (1 << 3)}, // 50Hz
     //{0x9D, 99}, // Banding filter for 50 Hz at 15.625 MHz
     {0x9D, 89}, // Banding filter for 50 Hz at 13.888 MHz
     {OV7670_REG_BD50MAX, 0x05},
     {OV7670_REG_BD60MAX, 0x07},
-    {OV7670_REG_AEW, 0x75},
-    {OV7670_REG_AEB, 0x63},
-    {OV7670_REG_VPT, 0xA5},
+    {OV7670_REG_AEW, 0x95}, //75
+    {OV7670_REG_AEB, 0x33},//63
+    {OV7670_REG_VPT, 0xe3}, //a5
     {OV7670_REG_HAECC1, 0x78},
     {OV7670_REG_HAECC2, 0x68},
     {0xA1, 0x03},              // Reserved register?
-    {OV7670_REG_HAECC3, 0xDF}, // Histogram-based AEC/AGC setup
-    {OV7670_REG_HAECC4, 0xDF},
+    {OV7670_REG_HAECC3, 0xd8}, //DF // Histogram-based AEC/AGC setup
+    {OV7670_REG_HAECC4, 0xD8}, //DF
     {OV7670_REG_HAECC5, 0xF0},
     {OV7670_REG_HAECC6, 0x90},
     {OV7670_REG_HAECC7, 0x94},
-    {OV7670_REG_COM8, OV7670_COM8_FASTAEC | OV7670_COM8_AECSTEP | OV7670_COM8_BANDING | OV7670_COM8_AGC | OV7670_COM8_AEC | OV7670_COM8_AWB },
+    //{OV7670_REG_COM8, OV7670_COM8_FASTAEC | OV7670_COM8_AECSTEP | OV7670_COM8_BANDING | OV7670_COM8_AGC | OV7670_COM8_AEC | OV7670_COM8_AWB },
     {OV7670_REG_COM5, 0x61},
     {OV7670_REG_COM6, 0x4B},
     {0x16, 0x02},            // Reserved register?
@@ -254,7 +254,7 @@ const uint8_t OV7670_init[93][2] = {
     {OV7670_REG_DM_LNL, 0x00},
     {0x96, 0x00}, // Reserved register?
     {0x9A, 0x80}, // Reserved register?
-    {0xB0, 0x84}, // Reserved register?
+    {0xB0, 0x84}, // improve color?// Reserved register?
     {OV7670_REG_ABLC1, 0x0C},
     {0xB2, 0x0E}, // Reserved register?
     {OV7670_REG_THL_ST, 0x82},
@@ -290,14 +290,26 @@ const uint8_t OV7670_init[93][2] = {
     {OV7670_REG_BRIGHT, 0x00},
     {OV7670_REG_CONTRAS, 0x40},
     {OV7670_REG_CONTRAS_CENTER, 0x80}, // 0x40?
-    {OV7670_REG_LAST + 1, 0x00},       // End-of-data marker
+    {0xff, 0xff},
+    //{OV7670_REG_LAST + 1, 0x00},       // End-of-data marker
 };
 
-const uint8_t OV7670_rgb[3][2] = {
+static const uint8_t OV7670_rgb[12][2] = {
     // Manual output format, RGB, use RGB565 and full 0-255 output range
     {OV7670_REG_COM7, OV7670_COM7_RGB},
     {OV7670_REG_RGB444, 0},
     {OV7670_REG_COM15, OV7670_COM15_RGB565 | OV7670_COM15_R00FF},
+
+    { OV7670_REG_COM9, 0x6A }, /* 128x gain ceiling; 0x8 is reserved bit */
+    { 0x4f, 0x80 },   /* "matrix coefficient 1" */
+    { 0x50, 0x80 },   /* "matrix coefficient 2" */
+    { 0x51, 0 },    /* vb */
+    { 0x52, 0x22 },   /* "matrix coefficient 4" */
+    { 0x53, 0x5e },   /* "matrix coefficient 5" */
+    { 0x54, 0x80 },   /* "matrix coefficient 6" */
+    { OV7670_REG_COM13, OV7670_COM13_UVSAT },
+
+    {0xff, 0xff},
 };
 
 /** Supported sizes (VGA division factor) for OV7670_set_size() */

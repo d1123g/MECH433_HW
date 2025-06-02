@@ -1,7 +1,7 @@
-import pgzrun
+import pgzrun # pip install pgzero
 
 import serial
-ser = serial.Serial('/dev/tty.usbmodem2101') # the name of your port here
+ser = serial.Serial('COM4') # the name of your port here
 print('Opening port: ' + str(ser.name))
 
 import numpy as np
