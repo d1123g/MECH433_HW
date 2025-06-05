@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define IN1_PIN 16                 // PWM pin (for IN1)
+#define IN1_PIN 28                 // PWM pin (for IN1)
 #define IN2_PIN 17                 // PWM pin (for IN2)
 #define DUTY_STEP 0.01f            // 1% per step
 

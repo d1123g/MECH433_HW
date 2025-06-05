@@ -15,6 +15,9 @@
 // Button Defines
 #define BUTTON_PIN 13 // GPIO pin for the button
 
+#define MOTOR_MIN 0
+#define MOTOR_MAX 0.75f // max PWM speed for motors
+
 float left_speed = 0;
 float right_speed = 0;
 
@@ -76,7 +79,7 @@ int main()
         // Read ADC
         uint16_t adc_value = adc_read();
         float voltage = (adc_value * 3.3f) / 4095.0f;
-        float gain = 1.0f * voltage / 3.3f; // normalized gain (0 to 1)
+        float gain = 0.5f * voltage / 3.3f; // normalized gain (0 to 1)
 
         // Process camera data
         setSaveImage(1);
@@ -153,7 +156,7 @@ int main()
         printf("Voltage = %.2f V\n", voltage);
         printf("Gain = %.2f\n", gain);
 
-        sleep_ms(1); // update ~100Hz
+        sleep_ms(100); // update ~100Hz
     }
 }
 
@@ -199,14 +202,14 @@ void controller(float gain, int com) {
         int setpoint = IMAGESIZEX / 2;  // center of image
         int error = setpoint - com;     // how far off the line center we are
         float turn_adjust = gain * (float)error; // adjust turn based on gain and error
-        float base_speed = 0.5f; // base speed for motors 50% PWM
+        float base_speed = 0.6f; // base speed for motors 50% PWM
         left_speed = base_speed + turn_adjust;  // adjust left motor speed
         right_speed = base_speed - turn_adjust; // adjust right motor speed
         // Clamp speeds between 0 and 1
-        if (left_speed < 0) left_speed = 0;
-        if (left_speed > 1) left_speed = 1;
-        if (right_speed < 0) right_speed = 0;
-        if (right_speed > 1) right_speed = 1;
+        if (left_speed < MOTOR_MIN) left_speed = MOTOR_MIN;
+        if (left_speed > MOTOR_MAX) left_speed = MOTOR_MAX;
+        if (right_speed < MOTOR_MIN) right_speed = MOTOR_MIN;
+        if (right_speed > MOTOR_MAX) right_speed = MOTOR_MAX;
         motor_set_speed(IN1_PIN, left_speed);   // left motor
         motor_set_speed(IN2_PIN, right_speed);  // right motor
 }
