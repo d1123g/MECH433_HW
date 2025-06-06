@@ -43,11 +43,14 @@ int main()
 
     // I2C Initialization at 1MHz.
     i2c_init(I2C_PORT_OLED, 1000*1000);
+
+    // here we set up the GPIO pins for I2C communication
     gpio_set_function(I2C_SDA_OLED, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_OLED, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_OLED);
     gpio_pull_up(I2C_SCL_OLED);
 
+    // Initialize OLED display
     gpio_init(25);
     gpio_set_dir(25, GPIO_OUT);
 
@@ -68,6 +71,8 @@ int main()
     int display_mode = 0; // 0: Voltage/Gain, 1: PWM, 2: COM
     bool last_button_state = false;
 
+
+    // the following functions are called to inialize the OLED display
     ssd1306_setup();
     ssd1306_clear();
     ssd1306_update();
@@ -87,7 +92,7 @@ int main()
         convertImage();
         int com = findLine(IMAGESIZEY / 2); // center of line
         setPixel(IMAGESIZEY / 2, com, 0, 255, 0);
-        printf("%d\r\n", com);
+        printf("%d\r\n", com); // print COM for debugging maybe should take out
 
         // Control motors based on COM and gain
 
@@ -96,6 +101,9 @@ int main()
 
         // Draw to OLED based on display mode
         ssd1306_clear();
+
+        // originally we were going to use this to display different modes but had an error where it only registered the button once.
+        // going to instead use it on a single display mode and put it on each row. 
 
         // if (display_mode == 0) {
         //     drawmytext(2, 2, "ADC Versus Gain");
@@ -129,14 +137,17 @@ int main()
         // Display Gain, PWM L/R, and COM in 3 rows
         ssd1306_clear();
 
+        // Row 1 displays Gain
         char buf1[30];
         sprintf(buf1, "Gain: %.2f", gain);
         drawmytext(2, 2, buf1); // Row 1
 
+        // Row 2 displays PWM for the left and right motors
         char buf2[30];
         sprintf(buf2, "PWM L:%.0f%% PWM R:%.0f%%", left_speed * 100, right_speed * 100);
         drawmytext(2, 12, buf2); // Row 2
 
+        // Row 3 displays Center of Mass (COM)
         char buf3[30];
         sprintf(buf3, "COM: %d", com);
         drawmytext(2, 22, buf3); // Row 3
@@ -145,11 +156,12 @@ int main()
 
         ssd1306_update();
 
-        // Blink LED
+        // Blink LED to make sure communication is working
         gpio_put(25, 1);
         sleep_ms(10);
         gpio_put(25, 0);
 
+        // pixel blink to make sure OLED is working
         pixelBlink(0, 0);
 
         printf("ADC Value: %d\n", adc_value);
@@ -160,35 +172,36 @@ int main()
     }
 }
 
-void drawmytext(int x, int y, char *m) {
+// function to draw text on OLED display
+void drawmytext(int x, int y, char *m) { // draws a string on the OLED display
     int i = 0;
     int startX = x;
-    while (m[i] != '\0') {
-        if (x + 5 >= 128) {
+    while (m[i] != '\0') { // loop through each character in the string
+        if (x + 5 >= 128) {// if we reach the end of the display, wrap to next line 
             x = startX;
             y += 8;
             if (y + 8 > 64) break; // for 64px tall display
         }
-        drawLetter(x, y, m[i]);
+        drawLetter(x, y, m[i]); //draw the letter using our function
         x += 6;
         i++;
     }
 }
 
-void drawLetter(int x, int y, char c) {
-    int index = c - 0x20;
+void drawLetter(int x, int y, char c) { //draw a single character on the OLED display using the font array
+    int index = c - 0x20; // ASCII offset for space character
     if (index < 0 || index >= 96) return;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 5; i++) { // loop through each column of the character
         char col = ASCII[index][i];
-        for (int j = 0; j < 8; j++) {
-            char on = (col >> j) & 0b1;
-            ssd1306_drawPixel(x + i, y + j, on);
+        for (int j = 0; j < 8; j++) { // loop through each row of the character
+            char on = (col >> j) & 0b1; // check if pixel is on (1) or off (0)
+            ssd1306_drawPixel(x + i, y + j, on); // draw the pixel on the OLED display
         }
     }
 }
 
-void pixelBlink(int x, int y) {
+void pixelBlink(int x, int y) { // function to blink a pixel on the OLED display for visual feedback
     ssd1306_drawPixel(x, y, 1);
     ssd1306_update();
     sleep_ms(10);
@@ -201,11 +214,12 @@ void controller(float gain, int com) {
         //compute error
         int setpoint = IMAGESIZEX / 2;  // center of image
         int error = setpoint - com;     // how far off the line center we are
+
         float turn_adjust = gain * (float)error; // adjust turn based on gain and error
-        float base_speed = 0.6f; // base speed for motors 50% PWM
+        float base_speed = 0.6f; // base speed for motors 60% PWM
         left_speed = base_speed + turn_adjust;  // adjust left motor speed
         right_speed = base_speed - turn_adjust; // adjust right motor speed
-        // Clamp speeds between 0 and 1
+        // Clamp speeds between a preset min and max
         if (left_speed < MOTOR_MIN) left_speed = MOTOR_MIN;
         if (left_speed > MOTOR_MAX) left_speed = MOTOR_MAX;
         if (right_speed < MOTOR_MIN) right_speed = MOTOR_MIN;
@@ -214,6 +228,8 @@ void controller(float gain, int com) {
         motor_set_speed(IN2_PIN, right_speed);  // right motor
 }
 
+// this function checks the button state and handles debouncing
+// UPDATE, we do not need to use this function in the main code 
 void check_button() {
     bool current_button_state = gpio_get(BUTTON_PIN);
 
